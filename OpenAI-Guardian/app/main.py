@@ -10,9 +10,9 @@ def read_config():
 
 config = read_config()
 api_key = config.get('API_KEY')
+mitmproxy = config.get('MITMPROXY')
 
-
-openai_client = OpenAI(api_key = api_key)
+openai_client = OpenAI(api_key = api_key, base_url=mitmproxy)
 
 
 app = FastAPI()
@@ -25,7 +25,7 @@ class Message(BaseModel):
 def read_root():
     return {"Hello": "World"}
 
-@app.post("/chat")
+@app.post("/")
 def chat(message: Message):
     content = message.content
     completion = openai_client.chat.completions.create(

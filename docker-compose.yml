@@ -16,3 +16,13 @@ services:
     volumes:
       - ./config.yml:/code/config.yml
 
+  mitmproxy:
+    image: mitmproxy/mitmproxy
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
+    command: mitmdump -s /code/intercept_openai.py --mode reverse:https://api.openai.com
+    volumes:
+      - ./mitmproxy/intercept_openai.py:/code/intercept_openai.py
+      - ~/.mitmproxy:/home/mitmproxy/.mitmproxy

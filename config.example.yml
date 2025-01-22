@@ -1,1 +1,9 @@
+# openai api key
 API_KEY: YOUR_API_KEY
+
+# If you are usign mitmproxy in doocker, you can use the service name as the host
+MITMPROXY: http://mitmproxy:8080/v1
+
+# the app is run in a docker container, so the MITMPROXY should be the host machine's IP address
+# "v1" is necessary for the api.openai.com to work
+# MITMPROXY: http://172.17.0.1:8080/v1 
