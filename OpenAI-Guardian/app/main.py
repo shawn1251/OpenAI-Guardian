@@ -4,7 +4,7 @@ from openai import OpenAI
 import yaml
 
 def read_config():
-    with open('/home/shawn/OpenAI-Guardian/OpenAI-Guardian/config.yml', 'r') as file:
+    with open('./config.yml', 'r') as file:
         config = yaml.safe_load(file)
     return config
 

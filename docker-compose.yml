@@ -1,0 +1,12 @@
+# Use root/example as user/password credentials
+version: '3.1'
+
+services:
+  app:
+    image: openaigurad
+    build: ./OpenAI-Guardian
+    ports:
+      - 8001:8000
+    volumes:
+      - ./config.yml:/code/config.yml
+
