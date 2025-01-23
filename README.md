@@ -88,6 +88,21 @@ services:
 
 - The first execution may take longer than usual due to the large size of the Guardian model.
 - Ensure that you have the correct API keys and configurations set in `config.yml`.
+### SSL Certificate
+
+Since a domain name is not free and an IP address may not be suitable for SSL certificates, you can generate a self-signed SSL certificate using OpenSSL. Run the following command to create the certificate:
+
+```bash
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout mykey.key -out mycert.crt
+```
+During the execution of this command, you will be prompted to enter some information (such as country, state, organization name, etc.) that will be included in the certificate.
+
+After generating the certificate and private key, place these two files into a directory named `certs`. Make sure to configure your services (e.g., Nginx) to use the generated mykey.key and mycert.crt for SSL. For example, in this Nginx configuration, you would see:
+```nginx
+ssl_certificate /etc/nginx/certs/mycert.crt;
+ssl_certificate_key /etc/nginx/certs/mykey.key;
+```
+**Note**: Self-signed certificates are not trusted by browsers and will result in security warnings. They are suitable for development and testing purposes but should not be used in production environments.
 
 ## Usage
 
