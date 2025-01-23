@@ -13,16 +13,23 @@ services:
   app:
     image: openaigurad
     build: ./OpenAI-Guardian
+    depends_on:
+      - guardian
     volumes:
       - ./config.yml:/code/config.yml
+  guardian:
+    image: guardian
+    build: ./Granite-Guardian
 
   mitmproxy:
-    image: mitmproxy/mitmproxy
+    image: my_mitmproxy
+    build: ./mitmproxy
     ports:
       - "8080:8080"
     depends_on:
+      - guardian
       - app
     command: mitmdump -s /code/intercept_openai.py --mode reverse:https://api.openai.com
     volumes:
-      - ./mitmproxy/intercept_openai.py:/code/intercept_openai.py
+      - ./mitmproxy/code/intercept_openai.py:/code/intercept_openai.py
       - ~/.mitmproxy:/home/mitmproxy/.mitmproxy

@@ -28,13 +28,16 @@ def read_root():
 @app.post("/")
 def chat(message: Message):
     content = message.content
-    completion = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        store=True,
-        messages=[
-            {"role": "user", "content": f"{content}"}
-        ]
-    )
-    print(completion)
-    response_text = completion.choices[0].message.content
-    return {"response": f"{response_text}"}
+    try:
+        completion = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            store=True,
+            messages=[
+                {"role": "user", "content": f"{content}"}
+            ]
+        )
+        print(completion)
+        response_text = completion.choices[0].message.content
+        return {"response": f"{response_text}"}
+    except Exception as e:
+        return {"error": f"{e}"}
