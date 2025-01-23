@@ -7,24 +7,23 @@ def request(flow: http.HTTPFlow) -> None:
         #print("Request URL:", flow.request.pretty_url)
         #print("Request Headers:", flow.request.headers)
         request_body = flow.request.text
+        print("Request Body:", request_body)
         try:
             data = json.loads(request_body)
-            content = data['messages'][0]['content']
-            print("Extracted Content:", content)
+            content = data['messages']
         except (json.JSONDecodeError, KeyError, IndexError) as e:
             print("Error parsing request body:", e)
-        
-        print("Request Body:", content)
+    
         # Send the request body to guardian service
         response = requests.post("http://guardian:8000/", json={
             "content": content})
         
         guardian_response = response.json()
         print(guardian_response)
-        if guardian_response.get('prediction') == 1:
+        if guardian_response.get('label') == True:
             flow.response = http.Response.make(
                 403,
-                b"Request blocked by mitmproxy",
+                guardian_response.get("message").encode(),
                 {"Content-Type": "text/plain"}
             )
 

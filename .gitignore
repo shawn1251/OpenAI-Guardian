@@ -1,3 +1,4 @@
 *.pyc
 config.yml
 .venv
+Granite-Guardian/model/*

@@ -20,7 +20,12 @@ services:
   guardian:
     image: guardian
     build: ./Granite-Guardian
-
+    # this model need GPU to run
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./Granite-Guardian/model:/code/model
   mitmproxy:
     image: my_mitmproxy
     build: ./mitmproxy
