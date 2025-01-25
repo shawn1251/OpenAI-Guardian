@@ -11,31 +11,28 @@ services:
       - "80:80"
       - "443:443"
     depends_on:
-      - app
-  app:
-    image: openaigurad
-    build: ./OpenAI-Guardian
-    depends_on:
       - guardian
-    volumes:
-      - ./config.yml:/code/config.yml
+      - mitmproxy
+
   guardian:
-    image: guardian
-    build: ./Granite-Guardian
-    # this model need GPU to run
-    runtime: nvidia
+    # x86 cpu image
+    build:
+      context: ./vllm
+      dockerfile: ./vllm/Dockerfile.cpu
+      shm_size: '4g'
+    image: vllm-guardian
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+      - VLLM_CPU_KVCACHE_SPACE=10 # you can increase this if you have more memory
+    command: --model /model
+    ports:
+      - "8000:8000"
     volumes:
-      - ./Granite-Guardian/model:/code/model
+      - ./model:/model
   mitmproxy:
     image: my_mitmproxy
     build: ./mitmproxy
     ports:
       - "8080:8080"
-    depends_on:
-      - guardian
-      - app
     command: mitmdump -s /code/intercept_openai.py --mode reverse:https://api.openai.com
     volumes:
       - ./mitmproxy/code/intercept_openai.py:/code/intercept_openai.py
