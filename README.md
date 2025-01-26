@@ -1,114 +1,102 @@
-# OpenAI Guardian Service
+# OPENAI-Guardian
 
-This project implements a service that acts as an intermediary between an application and the OpenAI API. It utilizes `mitmproxy` for message interception and IBM Granite Guardian to assess the content for harmful material. If harmful content is detected, the service will block the response.
+This project implements intercepting conversations with OpenAI using mitmproxy and blocking harmful content using IBM Granite Guardian.
 
-## Architecture
+## Introduction
+### GPU Support Issue
+The author's GPU is Pascal architecture, which is not supported by vllm. Initially, a model wrapped with FastAPI and transformers was used, but it made the project too complex and low quality. The current version integrates vllm and builds a CPU model in Docker Compose. A GPU version will be added after testing in a better environment.
 
-The project is structured using Docker Compose, which allows for easy management of multiple services. The architecture consists of the following components:
+### Model Downgrade
+Due to hardware limitations, the latest 3.1-2b model exceeds the author's environment capacity. Currently using 3.0-2b.
 
-- **Nginx**: Acts as a reverse proxy to route requests to the appropriate service.
-- **App**: The main application that interacts with the OpenAI API.
-- **Guardian**: The IBM Granite Guardian service that evaluates the content for harmful material.
-- **Mitmproxy**: Intercepts requests and responses between the App and the OpenAI API for analysis.
-
-## Docker Compose Configuration
-
-The project uses Docker Compose to define and run the services. Below is the `docker-compose.yml` configuration:
-
-```yaml
-version: '3.1'
-
-services:
-    nginx:
-        image: nginx:alpine
-        volumes:
-            - ./nginx.conf:/etc/nginx/conf.d/default.conf
-        ports:
-            - "80:80"
-        depends_on:
-            - app
-
-    app:
-        image: openaigurad
-        build: ./OpenAI-Guardian
-        ports:
-            - "8000:8000"
-        depends_on:
-            - guardian
-        volumes:
-            - ./config.yml:/code/config.yml
-
-    guardian:
-        image: guardian
-        build: ./Granite-Guardian
-        ports:
-            - "8001:8000"
-
-    mitmproxy:
-        image: my_mitmproxy
-        build: ./mitmproxy
-        ports:
-            - "8080:8080"
-        depends_on:
-            - guardian
-            - app
-        command: mitmdump -s /code/intercept_openai.py --mode reverse:https://api.openai.com
-        volumes:
-            - ./mitmproxy/code/intercept_openai.py:/code/intercept_openai.py
-            - ~/.mitmproxy:/home/mitmproxy/.mitmproxy
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Docker
-- Docker Compose
-- huggingface-cli
-
-### Installation
-
-1. Clone the repository:
-        ```bash
-        git clone https://github.com/shawn1251/OpenAI-Guardian.git
-        cd OpenAI-Guardian
-        ```
-2. Download the model manully (because the size is too big)`huggingface-cli download ibm-granite/granite-guardian-3.0-2b --local-dir ./Granite-Guardian/model`
-
-3. Fill in your API details in `config.example.yml` and rename it to `config.yml`.
-
-4. Build and start the services:
-        ```bash
-        docker-compose up --build
-        ```
-
-5. Access the FastAPI OpenAPI interface at [http://localhost/docs](http://localhost:80/docs) to interact with the application.
-
-### Notes
-
-- The first execution may take longer than usual due to the large size of the Guardian model.
-- Ensure that you have the correct API keys and configurations set in `config.yml`.
-### SSL Certificate
-
-Since a domain name is not free and an IP address may not be suitable for SSL certificates, you can generate a self-signed SSL certificate using OpenSSL. Run the following command to create the certificate:
-
+### SSL
+The author did not purchase a domain and IP. For the experimental setup, a self-signed SSL is used.
+1. Create cert
 ```bash
+mkdir certs
+cd certs
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout mykey.key -out mycert.crt
 ```
-During the execution of this command, you will be prompted to enter some information (such as country, state, organization name, etc.) that will be included in the certificate.
-
-After generating the certificate and private key, place these two files into a directory named `certs`. Make sure to configure your services (e.g., Nginx) to use the generated mykey.key and mycert.crt for SSL. For example, in this Nginx configuration, you would see:
-```nginx
-ssl_certificate /etc/nginx/certs/mycert.crt;
-ssl_certificate_key /etc/nginx/certs/mykey.key;
+2. Replace in `docker-compose.yml` conf
+```docker
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      #- ./nginx.without_SSL.conf:/etc/nginx/conf.d/default.conf
+      - ./certs:/etc/nginx/certs 
 ```
-**Note**: Self-signed certificates are not trusted by browsers and will result in security warnings. They are suitable for development and testing purposes but should not be used in production environments.
+3. Change `http://127.0.0.1/v1` to `https://127.0.0.1/v1` in `config.yml`
+4. Refer to [this post](https://community.openai.com/t/ssl-certificate-verify-failed-certificate-verify-failed-self-signed-certificate-in-certificate-chain/705003/11) to disable certificate verification in `chat.py`
+```python
+client = OpenAI(
+    http_client = httpx.Client(verify=False)
+)
+```
+### Multiple Harmful Types Detection
+Currently, multiple harmful types detection is desired, but due to slow local environment, OpenAI server closes connection during intercept. No solution yet. Future improvements in detection efficiency will allow uncommenting in `intercept_openai.py`
+```python
+# Define risk types and their corresponding explanations
+RISK_TYPES = {
+    "harm": "The prompt is considered toxic.",
+    # "unethical_behavior": "Inquiries on how to perform an illegal activity",
+    # "sexual_content": "Any sexual content",
+    # "violence": "Description of violent acts"
+}
+```
 
+## Requirements
+* git
+* docker
+* docker-compose
+* huggingface-cli
+* python 3.12
+    * openai
+    * yaml
+
+## Preparation
+1. Download Granite Guardian model
+Use [huggingface-cli](https://huggingface.co/docs/huggingface_hub/main/en/guides/cli) to download ibm-granite/granite-guardian-3.0-2b.
+    `huggingface-cli download ibm-granite/granite-guardian-3.0-2b --local-dir model`
+2. Increase swap
+    Due to the large model size, increase swap to the maximum for CPU execution. The author's M1 Pro environment requires 16G memory for Docker to run the 3.0-2b model. The 3.1-2b model still causes OOM.
+
+3. Clone vllm project
+Run `git clone https://github.com/vllm-project/vllm.git`. Build the CPU version of vllm Docker as needed. Modify the settings in docker-compose.yml according to your CPU.
+```
+  guardian:
+    build:
+      context: ./vllm # need .git folder for setuptools-scm
+      #dockerfile: ./Dockerfile.cpu # x86 cpu image
+      dockerfile: ./Dockerfile.arm #for apple silicon
+```
+## Installation
+* `docker-compose build`
+* `mv config.example.yml config.yml` and fill in the API KEY 
 ## Usage
+* `docker-compose up -d`
+* Use `chat.py` with prepared messages to test
+    * `python chat.py --message normal`
+    * `python chat.py --message harm`
+    * `python chat.py --message unethical`
+    * `python chat.py --message sexual`
+    * `python chat.py --message violence`
+### Example
+#### Normal
+```!
+python chat.py --message normal
+INFO:__main__:Client init.
+INFO:__main__:Message: {'role': 'user', 'content': 'Normal message: Hello, how are you?'}
+INFO:httpx:HTTP Request: POST https://127.0.0.1/v1/chat/completions "HTTP/1.1 200 OK"
+Chat response: ChatCompletion(id='chatcmpl-Au3HKvYYTKZYj5R45OLK5oSTBKhe6', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content="Hello! I'm doing well, thank you. How about you?", refusal=None, role='assistant', audio=None, function_call=None, tool_calls=None))], created=1737922334, model='gpt-4o-mini-2024-07-18', object='chat.completion', service_tier='default', system_fingerprint='fp_72ed7ab54c', usage=CompletionUsage(completion_tokens=14, prompt_tokens=16, total_tokens=30, completion_tokens_details=CompletionTokensDetails(accepted_prediction_tokens=0, audio_tokens=0, reasoning_tokens=0, rejected_prediction_tokens=0), prompt_tokens_details=PromptTokensDetails(audio_tokens=0, cached_tokens=0)))
+```
+#### Harm
+```!
+python chat.py --message harm  
+INFO:__main__:Client init.
+INFO:__main__:Message: {'role': 'user', 'content': 'what the fuck'}
+INFO:httpx:HTTP Request: POST https://127.0.0.1/v1/chat/completions "HTTP/1.1 403 Forbidden"
+Error code: 403 - {'error': 'No specific risks detected, but the prompt is considered harmful.'}
+```
 
-- The application will intercept requests to the OpenAI API.
-- The intercepted messages will be analyzed by the IBM Granite Guardian service.
-- If harmful content is detected, the response will be blocked.
 
 ## Acknowledgments
 
