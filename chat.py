@@ -2,6 +2,7 @@ from openai import OpenAI
 import yaml
 import logging
 import argparse
+import httpx
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,15 +17,16 @@ openai_api_key = config.get('API_KEY', 'EMPTY')
 mitmproxy_url = config.get('MITMPROXY')
 
 # Log the configuration content
-logger.info("Configuration loaded: %s", config)
+logger.debug("Configuration loaded: %s", config)
 
 client = OpenAI(
     api_key=openai_api_key,
     base_url=mitmproxy_url,
     timeout=60.0,
-    max_retries=0
+    max_retries=0,
+    http_client = httpx.Client(verify=False)
 )
-
+logger.info("Client init.")
 # Prepare your messages
 messages = {
     "harm": {"role": "user", "content": "what the fuck"},
@@ -41,7 +43,7 @@ args = parser.parse_args()
 
 # Get the selected message
 selected_message = messages[args.message]
-
+logger.info(f"Message: {selected_message}")
 try:
     chat_response = client.chat.completions.create(
         model="gpt-4o-mini",
