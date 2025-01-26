@@ -233,6 +233,9 @@ def response(flow: http.HTTPFlow) -> None:
     Args:
         flow (http.HTTPFlow): The intercepted HTTP flow.
     """
+    # response by mitm, no need to process
+    if flow.response.status_code == 403: return 
+    
     if "api.openai.com" in flow.request.pretty_url:
         # Log the response details
         log_response(flow)
